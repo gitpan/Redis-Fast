@@ -1,0 +1,62 @@
+---
+abstract: 'Perl binding for Redis database'
+author:
+  - 'Ichinose Shogo <shogo82148@gmail.com>'
+build_requires:
+  File::Temp: 0
+  Test::Deep: 0
+  Test::More: 0.98
+  Test::TCP: 0
+configure_requires:
+  CPAN::Meta: 0
+  CPAN::Meta::Prereqs: 0
+  Module::Build: 0.38
+  Module::Build::XSUtil: 0.02
+dynamic_config: 0
+generated_by: 'Minilla/v0.5.3, CPAN::Meta::Converter version 2.132140'
+license: unknown
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Redis-Fast
+no_index:
+  directory:
+    - t
+    - xt
+    - inc
+    - share
+    - eg
+    - examples
+    - author
+    - builder
+provides:
+  Redis::Fast:
+    file: lib/Redis/Fast.pm
+    version: 0.01
+  Redis::Fast::Hash:
+    file: lib/Redis/Fast/Hash.pm
+  Redis::Fast::List:
+    file: lib/Redis/Fast/List.pm
+requires:
+  perl: 5.008001
+resources:
+  bugtracker: https://github.com/shogo82148/Redis-Fast/issues
+  homepage: https://github.com/shogo82148/Redis-Fast
+  repository: git://github.com/shogo82148/Redis-Fast.git
+version: 0.01
+x_contributors:
+  - 'sunnavy <sunnavy@bestpractical.com>'
+  - 'U-LIFEBOOK\Administrator <Administrator@LIFEBOOK.(none)>'
+  - 'Dobrica Pavlinusic <dpavlin@rot13.org>'
+  - 'Jeff Lavallee <jeff@zeroclue.com>'
+  - 'Flavio Poletti <flavio@polettix.it>'
+  - 'Ulrich Habel <rhaen@cpan.org>'
+  - 'Thiago Berlitz Rondon <thiago.rondon@gmail.com>'
+  - 'Aaron Crane <arc@aaroncrane.co.uk>'
+  - 'Michael Klishin <michaelklishin@me.com>'
+  - 'Aaron Crane <arc@cpan.org>'
+  - 'Steffen Mueller <smueller@cpan.org>'
+  - 'Gregor Herrmann <gregoa@debian.org>'
+  - 'Volker Kroll <vkroll@allein-zu-haus.de>'
+  - 'Pedro Melo <melo@simplicidade.org>'
+  - 'perlpong <calyx238@gmail.com>'
