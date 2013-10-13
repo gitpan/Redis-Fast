@@ -15,6 +15,10 @@
 
 #define MAX_ERROR_SIZE 256
 
+#define WAIT_FOR_EVENT_OK 0
+#define WAIT_FOR_EVENT_TIMEDOUT 1
+#define WAIT_FOR_EVENT_EXCEPTION 2
+
 //#define DEBUG
 #if defined(DEBUG)
 #define DEBUG_MSG(fmt, ...) \
@@ -130,8 +134,8 @@ static int wait_for_event(Redis__Fast self, double timeout) {
     struct timeval t;
     int rc;
 
-    if(self==NULL) return 0;
-    if(self->ac==NULL) return 0;
+    if(self==NULL) return WAIT_FOR_EVENT_EXCEPTION;
+    if(self->ac==NULL) return WAIT_FOR_EVENT_EXCEPTION;
 
     c = &(self->ac->c);
     fd = c->fd;
@@ -141,18 +145,19 @@ static int wait_for_event(Redis__Fast self, double timeout) {
     t.tv_sec = (int)timeout;
     t.tv_usec = (timeout - (int)timeout) * 1000000;
 
-    DEBUG_MSG("%s", "select start");
+    DEBUG_MSG("select start, timeout is %f", timeout);
     FD_ZERO(&readfds); if(e->flags & WAIT_FOR_READ) { FD_SET(fd, &readfds); }
     FD_ZERO(&writefds); if(e->flags & WAIT_FOR_WRITE) { FD_SET(fd, &writefds); }
     FD_ZERO(&exceptfds); FD_SET(fd, &exceptfds);
     rc = select(fd + 1, &readfds, &writefds, &exceptfds, timeout < 0 ? NULL : &t);
     if(rc<=0) {
         DEBUG_MSG("%s", "timeout");
-        return 0;
+        return WAIT_FOR_EVENT_TIMEDOUT;
     }
 
     if(FD_ISSET(fd, &exceptfds)) {
         DEBUG_MSG("%s", "exception!!");
+        return WAIT_FOR_EVENT_EXCEPTION;
     }
     if(self->ac && FD_ISSET(fd, &readfds)) {
         DEBUG_MSG("ready to %s", "read");
@@ -163,7 +168,8 @@ static int wait_for_event(Redis__Fast self, double timeout) {
         redisAsyncHandleWrite(self->ac);
     }
 
-    return 1;
+    DEBUG_MSG("%s", "finish");
+    return WAIT_FOR_EVENT_OK;
 }
 
 static void Redis__Fast_connect_cb(redisAsyncContext* c, int status) {
@@ -199,6 +205,7 @@ static void Redis__Fast_disconnect_cb(redisAsyncContext* c, int status) {
 static redisAsyncContext* __build_sock(Redis__Fast self)
 {
     redisAsyncContext *ac;
+    DEBUG_MSG("%s", "start");
 
     if(self->path) {
         ac = redisAsyncConnectUnix(self->path);
@@ -207,6 +214,7 @@ static redisAsyncContext* __build_sock(Redis__Fast self)
     }
 
     if(!ac) {
+        DEBUG_MSG("%s", "fail to allocate");
         return NULL;
     }
     ac->data = (void*)self;
@@ -217,21 +225,37 @@ static redisAsyncContext* __build_sock(Redis__Fast self)
     redisAsyncSetDisconnectCallback(ac, (redisDisconnectCallback*)Redis__Fast_disconnect_cb);
 
     // wait to connect...
-    wait_for_event(self, -1);
+    int res = wait_for_event(self, self->reconnect ? self->reconnect : -1);
+    if(res != WAIT_FOR_EVENT_OK) {
+        DEBUG_MSG("error: %d", res);
+        redisAsyncFree(self->ac);
+        self->ac = NULL;
+        return NULL;
+    }
 
+    DEBUG_MSG("%s", "finsih");
     return self->ac;
 }
 
 
-static void _wait_all_responses(Redis__Fast self) {
+static int _wait_all_responses(Redis__Fast self) {
+    DEBUG_MSG("%s", "start");
     while(self->ac && self->ac->replies.tail) {
-        wait_for_event(self, -1);
+        int res = wait_for_event(self, -1);
+        if (res != WAIT_FOR_EVENT_OK) {
+            DEBUG_MSG("error: %d", res);
+            return res;
+        }
     }
+    DEBUG_MSG("%s", "finish");
+    return WAIT_FOR_EVENT_OK;
 }
 
 
 static void Redis__Fast_connect(Redis__Fast self) {
-    clock_t start;
+    struct timeval start, end;
+
+    DEBUG_MSG("%s", "start");
 
     if (self->ac) {
         redisAsyncFree(self->ac);
@@ -249,38 +273,49 @@ static void Redis__Fast_connect(Redis__Fast self) {
             } else {
                 snprintf(self->error, MAX_ERROR_SIZE, "Could not connect to Redis server at %s:%d", self->hostname, self->port);
             }
-            croak(self->error);
+            croak("%s", self->error);
         }
         return ;
     }
 
     // Reconnect...
-    start = clock();
+    gettimeofday(&start, NULL);
     while (1) {
+        double elapsed_time;
         if(__build_sock(self)) {
             // Connected!
+            DEBUG_MSG("%s", "finish");
             return;
         }
-        if(clock() - start > self->reconnect * CLOCKS_PER_SEC) {
+        gettimeofday(&end, NULL);
+        elapsed_time = (end.tv_sec-start.tv_sec) + 1E-6 * (end.tv_usec-start.tv_usec);
+        DEBUG_MSG("elasped time:%f, reconnect:%d", elapsed_time, self->reconnect);
+        if( elapsed_time > self->reconnect) {
             if(self->path) {
                 snprintf(self->error, MAX_ERROR_SIZE, "Could not connect to Redis server at %s", self->path);
             } else {
                 snprintf(self->error, MAX_ERROR_SIZE, "Could not connect to Redis server at %s:%d", self->hostname, self->port);
             }
-            croak(self->error);
+            DEBUG_MSG("%s", "timed out");
+            croak("%s", self->error);
             return;
         }
+        DEBUG_MSG("%s", "failed to connect. wait...");
         usleep(self->every);
     }
+    DEBUG_MSG("%s", "finish");
 }
 
 static void Redis__Fast_reconnect(Redis__Fast self) {
+    DEBUG_MSG("%s", "start");
     if(!self->ac && self->reconnect) {
+        DEBUG_MSG("%s", "connection not found. reconnect");
         Redis__Fast_connect(self);
     }
     if(!self->ac) {
         croak("Not connected to any server");
     }
+    DEBUG_MSG("%s", "finish");
 }
 
 static redis_fast_reply_t Redis__Fast_decode_reply(Redis__Fast self, redisReply* reply, int collect_errors) {
@@ -357,10 +392,12 @@ static void Redis__Fast_sync_reply_cb(redisAsyncContext* c, void* reply, void* p
             cbt->ret = Redis__Fast_decode_reply(self, (redisReply*)reply, cbt->collect_errors);
         }
     } else {
+        DEBUG_MSG("connect error: %s", c->errstr);
         self->need_recoonect = 1;
         cbt->ret.result = NULL;
         cbt->ret.error = sv_2mortal( newSVpvn(c->errstr, strlen(c->errstr)) );
     }
+    DEBUG_MSG("%s", "finish");
 }
 
 static void Redis__Fast_async_reply_cb(redisAsyncContext* c, void* reply, void* privdata) {
@@ -406,6 +443,8 @@ static void Redis__Fast_subscribe_cb(redisAsyncContext* c, void* reply, void* pr
     redis_fast_subscribe_cb_t *cbt = (redis_fast_subscribe_cb_t*)privdata;
     SV* sv_undef;
     redisReply* r = (redisReply*)reply;
+    DEBUG_MSG("%s", "start");
+
     sv_undef = sv_2mortal(newSV(0));
 
     if (r) {
@@ -414,11 +453,11 @@ static void Redis__Fast_subscribe_cb(redisAsyncContext* c, void* reply, void* pr
         redis_fast_reply_t res = Redis__Fast_decode_reply(self, r, 0);
 
         if (strcasecmp(stype+pvariant,"subscribe") == 0) {
-            DEBUG_MSG("%s %s %d", r->element[0]->str, r->element[1]->str, r->element[2]->integer);
+            DEBUG_MSG("%s %s %lld", r->element[0]->str, r->element[1]->str, r->element[2]->integer);
             self->is_subscriber = r->element[2]->integer;
             self->expected_subs--;
         } else if (strcasecmp(stype+pvariant,"unsubscribe") == 0) {
-            DEBUG_MSG("%s %s %d", r->element[0]->str, r->element[1]->str, r->element[2]->integer);
+            DEBUG_MSG("%s %s %lld", r->element[0]->str, r->element[1]->str, r->element[2]->integer);
             self->is_subscriber = r->element[2]->integer;
         } else {
             DEBUG_MSG("%s %s", r->element[0]->str, r->element[1]->str);
@@ -442,15 +481,19 @@ static void Redis__Fast_subscribe_cb(redisAsyncContext* c, void* reply, void* pr
         }
     } else {
         // destroy private data
+        DEBUG_MSG("connect error: %s", c->errstr);
         DEBUG_MSG("destroy %p", cbt);
         SvREFCNT_dec(cbt->cb);
         Safefree(cbt);
     }
+    DEBUG_MSG("%s", "finish");
 }
 
 
 static redis_fast_reply_t  Redis__Fast_run_cmd(Redis__Fast self, int collect_errors, CUSTOM_DECODE custom_decode, SV* cb, int argc, const char** argv, size_t* argvlen) {
     redis_fast_reply_t ret = {NULL, NULL};
+
+    DEBUG_MSG("start %s", argv[0]);
 
     if(self->pid != getpid()) {
         Redis__Fast_connect(self);
@@ -471,6 +514,7 @@ static redis_fast_reply_t  Redis__Fast_run_cmd(Redis__Fast self, int collect_err
         redis_fast_sync_cb_t cbt;
         int i, cnt = (self->reconnect == 0 ? 1 : 2);
         for(i = 0; i < cnt; i++) {
+            int res;
             self->need_recoonect = 0;
             cbt.ret.result = NULL;
             cbt.ret.error = NULL;
@@ -480,11 +524,15 @@ static redis_fast_reply_t  Redis__Fast_run_cmd(Redis__Fast self, int collect_err
                 self->ac, Redis__Fast_sync_reply_cb, &cbt,
                 argc, argv, argvlen
                 );
-            _wait_all_responses(self);
-            if(!self->need_recoonect) return cbt.ret;
+            res = _wait_all_responses(self);
+            if(res == WAIT_FOR_EVENT_OK && !self->need_recoonect) {
+                DEBUG_MSG("finish %s", argv[0]);
+                return cbt.ret;
+            }
             Redis__Fast_reconnect(self);
         }
     }
+    DEBUG_MSG("finish %s", argv[0]);
     return ret;
 }
 
@@ -673,6 +721,7 @@ void
 DESTROY(Redis::Fast self);
 CODE:
 {
+    DEBUG_MSG("%s", "start");
     if (self->ac) {
         redisAsyncFree(self->ac);
         self->ac = NULL;
@@ -704,6 +753,7 @@ CODE:
     }
 
     Safefree(self);
+    DEBUG_MSG("%s", "finish");
 }
 
 
@@ -761,7 +811,10 @@ void
 wait_all_responses(Redis::Fast self)
 CODE:
 {
-    _wait_all_responses(self);
+    int res = _wait_all_responses(self);
+    if(res != WAIT_FOR_EVENT_OK) {
+        croak("Error while reading from Redis server");
+    }
 }
 
 
@@ -769,7 +822,10 @@ void
 wait_one_response(Redis::Fast self)
 CODE:
 {
-    _wait_all_responses(self);
+    int res = _wait_all_responses(self);
+    if(res != WAIT_FOR_EVENT_OK) {
+        croak("Error while reading from Redis server");
+    }
 }
 
 
@@ -832,10 +888,13 @@ CODE:
         redisAsyncCommand(
             self->ac, Redis__Fast_sync_reply_cb, &cbt, "PING"
             );
-        _wait_all_responses(self);
-        ST(0) = cbt.ret.result ? cbt.ret.result : sv_2mortal(newSV(0));
-        ST(1) = cbt.ret.error ? cbt.ret.error : sv_2mortal(newSV(0));
-        XSRETURN(2);
+        if(_wait_all_responses(self) == WAIT_FOR_EVENT_OK) {
+            ST(0) = cbt.ret.result ? cbt.ret.result : sv_2mortal(newSV(0));
+            ST(1) = cbt.ret.error ? cbt.ret.error : sv_2mortal(newSV(0));
+            XSRETURN(2);
+        } else {
+            XSRETURN(0);
+        }
     } else {
         XSRETURN(0);
     }
@@ -856,9 +915,12 @@ CODE:
             self->ac, Redis__Fast_sync_reply_cb, &cbt, "QUIT"
             );
         redisAsyncDisconnect(self->ac);
-        _wait_all_responses(self);
-        ST(0) = cbt.ret.result;
-        XSRETURN(1);
+        if(_wait_all_responses(self) == WAIT_FOR_EVENT_OK) {
+            ST(0) = cbt.ret.result;
+            XSRETURN(1);
+        } else {
+            XSRETURN(0);
+        }
     } else {
         XSRETURN(0);
     }
@@ -983,6 +1045,8 @@ PREINIT:
     int pvariant;
 CODE:
 {
+    DEBUG_MSG("%s", "start");
+
     Redis__Fast_reconnect(self);
     if(!self->is_subscriber) {
         _wait_all_responses(self);
@@ -1004,6 +1068,7 @@ CODE:
             argv[i] = SvPV(ST(i+1), len);
         }
         argvlen[i] = len;
+        DEBUG_MSG("argv[%d] = %s", i, argv[i]);
     }
 
     pvariant = (tolower(argv[0][0]) == 'p') ? 1 : 0;
@@ -1018,19 +1083,22 @@ CODE:
         argc, (const char**)argv, argvlen
         );
     self->expected_subs = argc - 1;
-    while(self->expected_subs > 0 && wait_for_event(self, 1)) ;
+    while(self->expected_subs > 0 && wait_for_event(self, 1) == WAIT_FOR_EVENT_OK) ;
     XSRETURN(1);
 
     Safefree(argv);
     Safefree(argvlen);
+    DEBUG_MSG("%s", "finish");
 }
 
 void
 wait_for_messages(Redis::Fast self, double timeout)
 CODE:
 {
+    DEBUG_MSG("%s", "start");
     self->proccess_sub_count = 0;
-    while(wait_for_event(self, timeout)) ;
+    while(wait_for_event(self, timeout) == WAIT_FOR_EVENT_OK) ;
     ST(0) = sv_2mortal(newSViv(self->proccess_sub_count));
+    DEBUG_MSG("%s", "finish");
     XSRETURN(1);
 }

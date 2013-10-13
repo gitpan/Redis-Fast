@@ -10,6 +10,7 @@ build_requires:
 configure_requires:
   CPAN::Meta: 0
   CPAN::Meta::Prereqs: 0
+  File::Which: 0
   Module::Build: 0.38
   Module::Build::XSUtil: 0.02
 dynamic_config: 0
@@ -32,7 +33,7 @@ no_index:
 provides:
   Redis::Fast:
     file: lib/Redis/Fast.pm
-    version: 0.01
+    version: 0.02
   Redis::Fast::Hash:
     file: lib/Redis/Fast/Hash.pm
   Redis::Fast::List:
@@ -43,7 +44,7 @@ resources:
   bugtracker: https://github.com/shogo82148/Redis-Fast/issues
   homepage: https://github.com/shogo82148/Redis-Fast
   repository: git://github.com/shogo82148/Redis-Fast.git
-version: 0.01
+version: 0.02
 x_contributors:
   - 'sunnavy <sunnavy@bestpractical.com>'
   - 'U-LIFEBOOK\Administrator <Administrator@LIFEBOOK.(none)>'
@@ -60,3 +61,5 @@ x_contributors:
   - 'Volker Kroll <vkroll@allein-zu-haus.de>'
   - 'Pedro Melo <melo@simplicidade.org>'
   - 'perlpong <calyx238@gmail.com>'
+  - 'Syohei YOSHIDA <syohex@gmail.com>'
+  - 'shogo82148 <ichinose-shogo@kayac.com>'
