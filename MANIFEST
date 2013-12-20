@@ -27,6 +27,7 @@ t/20-tie-hash.t
 t/30-scripts.t
 t/42-client_cmds.t
 t/50-fork_safe.t
+t/51-leak.t
 t/tlib/Test/SpawnRedisServer.pm
 typemap
 deps/hiredis/CHANGELOG.md

@@ -344,9 +344,9 @@ static redis_fast_reply_t Redis__Fast_decode_reply(Redis__Fast self, redisReply*
         break;
 
     case REDIS_REPLY_ARRAY: {
-        AV* av = (AV*)sv_2mortal((SV*)newAV());
+        AV* av = newAV();
         size_t i;
-        res.result = newRV_inc((SV*)av);
+        res.result = sv_2mortal(newRV_noinc((SV*)av));
 
         for (i = 0; i < reply->elements; i++) {
             redis_fast_reply_t elem = Redis__Fast_decode_reply(self, reply->element[i], collect_errors);
@@ -441,11 +441,11 @@ static void Redis__Fast_async_reply_cb(redisAsyncContext* c, void* reply, void* 
 static void Redis__Fast_subscribe_cb(redisAsyncContext* c, void* reply, void* privdata) {
     Redis__Fast self = (Redis__Fast)c->data;
     redis_fast_subscribe_cb_t *cbt = (redis_fast_subscribe_cb_t*)privdata;
-    SV* sv_undef;
     redisReply* r = (redisReply*)reply;
-    DEBUG_MSG("%s", "start");
-
+    SV* sv_undef;
     sv_undef = sv_2mortal(newSV(0));
+
+    DEBUG_MSG("%s", "start");
 
     if (r) {
         char* stype = r->element[0]->str;
@@ -463,6 +463,10 @@ static void Redis__Fast_subscribe_cb(redisAsyncContext* c, void* reply, void* pr
             DEBUG_MSG("%s %s", r->element[0]->str, r->element[1]->str);
             self->proccess_sub_count++;
         }
+
+        if(res.result == NULL) res.result = sv_undef;
+        if(res.error == NULL) res.error = sv_undef;
+
         {
             dSP;
 
@@ -877,32 +881,6 @@ CODE:
 
 
 void
-__ping(Redis::Fast self)
-PREINIT:
-    redis_fast_sync_cb_t cbt;
-CODE:
-{
-    if(self->ac) {
-        cbt.ret.result = NULL;
-        cbt.ret.error = NULL;
-        cbt.custom_decode = NULL;
-        redisAsyncCommand(
-            self->ac, Redis__Fast_sync_reply_cb, &cbt, "PING"
-            );
-        if(_wait_all_responses(self) == WAIT_FOR_EVENT_OK) {
-            ST(0) = cbt.ret.result ? cbt.ret.result : sv_2mortal(newSV(0));
-            ST(1) = cbt.ret.error ? cbt.ret.error : sv_2mortal(newSV(0));
-            XSRETURN(2);
-        } else {
-            XSRETURN(0);
-        }
-    } else {
-        XSRETURN(0);
-    }
-}
-
-
-void
 __quit(Redis::Fast self)
 PREINIT:
     redis_fast_sync_cb_t cbt;
@@ -1089,7 +1067,7 @@ CODE:
     Safefree(argv);
     Safefree(argvlen);
     DEBUG_MSG("%s", "finish");
-    XSRETURN(1);
+    XSRETURN(0);
 }
 
 void

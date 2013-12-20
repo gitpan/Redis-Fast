@@ -54,6 +54,7 @@
             "File::Temp" : "0",
             "Test::Deep" : "0",
             "Test::Fatal" : "0",
+            "Test::LeakTrace" : "0",
             "Test::More" : "0.98",
             "Test::TCP" : "0",
             "Try::Tiny" : "0"
@@ -63,7 +64,7 @@
    "provides" : {
       "Redis::Fast" : {
          "file" : "lib/Redis/Fast.pm",
-         "version" : "0.04"
+         "version" : "0.05"
       },
       "Redis::Fast::Hash" : {
          "file" : "lib/Redis/Fast/Hash.pm"
@@ -83,7 +84,7 @@
          "web" : "https://github.com/shogo82148/Redis-Fast"
       }
    },
-   "version" : "0.04",
+   "version" : "0.05",
    "x_contributors" : [
       "sunnavy <sunnavy@bestpractical.com>",
       "U-LIFEBOOK\\Administrator <Administrator@LIFEBOOK.(none)>",
@@ -101,6 +102,7 @@
       "Pedro Melo <melo@simplicidade.org>",
       "perlpong <calyx238@gmail.com>",
       "Syohei YOSHIDA <syohex@gmail.com>",
-      "shogo82148 <ichinose-shogo@kayac.com>"
+      "shogo82148 <ichinose-shogo@kayac.com>",
+      "dams <dams@zarb.org>"
    ]
 }

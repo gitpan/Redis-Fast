@@ -2,7 +2,7 @@ package Redis::Fast;
 
 BEGIN {
     use XSLoader;
-    our $VERSION = '0.04';
+    our $VERSION = '0.05';
     XSLoader::load __PACKAGE__, $VERSION;
 }
 
@@ -13,7 +13,25 @@ use Data::Dumper;
 use Carp qw/confess/;
 use Encode;
 use Try::Tiny;
+use Scalar::Util qw(weaken);
 
+sub _new_on_connect_cb {
+    my ($self, $on_conn, $password, $name) = @_;
+    weaken $self;
+    return sub {
+        try {
+            $self->auth($password) if defined $password;
+        } catch {
+            confess("Redis server refused password");
+        };
+        try {
+            my $n = $name;
+            $n = $n->($self) if ref($n) eq 'CODE';
+            $self->client_setname($n) if defined $n;
+        };
+        $on_conn->($self) if $on_conn;
+    };
+}
 
 sub new {
   my $class = shift;
@@ -48,21 +66,7 @@ sub new {
   my $on_conn = $args{on_connect};
   my $password = $args{password};
   my $name = $args{name};
-  $self->__set_on_connect(
-      sub {
-          try {
-              $self->auth($password) if defined $password;
-          } catch {
-              confess("Redis server refused password");
-          };
-          try {
-              my $n = $name;
-              $n = $n->($self) if ref($n) eq 'CODE';
-              $self->client_setname($n) if defined $n;
-          };
-          $on_conn->($self) if $on_conn;
-      }
-  );
+  $self->__set_on_connect($self->_new_on_connect_cb($on_conn, $password, $name));
   $self->__set_data({
       subscribers => {},
   });
@@ -130,10 +134,13 @@ sub keys {
 sub ping {
     my $self = shift;
     $self->__is_valid_command('ping');
-    my ($ret, $error) = $self->__ping;
-    confess "[keys] $error, " if defined $error;
-    return $ret unless ref $ret eq 'ARRAY';
-    return @$ret;
+    return scalar try {
+        my ($ret, $error) = $self->__std_cmd('ping');
+        return if defined $error;
+        return $ret;
+    } catch {
+        return ;
+    };
 }
 
 sub info {
@@ -163,6 +170,7 @@ sub __subscription_cmd {
   my $unsub   = shift;
   my $command = shift;
   my $cb      = pop;
+  weaken $self;
 
   confess("Missing required callback in call to $command(), ")
     unless ref($cb) eq 'CODE';
