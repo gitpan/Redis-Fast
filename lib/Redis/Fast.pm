@@ -2,7 +2,7 @@ package Redis::Fast;
 
 BEGIN {
     use XSLoader;
-    our $VERSION = '0.07';
+    our $VERSION = '0.08';
     XSLoader::load __PACKAGE__, $VERSION;
 }
 
@@ -60,16 +60,6 @@ sub new {
   my $self  = $class->_new;
 
   #$self->{debug} = $args{debug} || $ENV{REDIS_DEBUG};
-
-  ## default to lax utf8
-  my $encoding = exists $args{encoding} ? $args{encoding} : 'utf8';
-  if(!$encoding) {
-    $self->__set_utf8(0);
-  } elsif($encoding eq 'utf8') {
-    $self->__set_utf8(1);
-  } else {
-    die "encoding $encoding does not support";
-  }
 
   ## Deal with REDIS_SERVER ENV
   if ($ENV{REDIS_SERVER} && !$args{sock} && !$args{server}) {
