@@ -37,7 +37,7 @@ no_index:
 provides:
   Redis::Fast:
     file: lib/Redis/Fast.pm
-    version: 0.08
+    version: 0.09
   Redis::Fast::Hash:
     file: lib/Redis/Fast/Hash.pm
     version: 0
@@ -53,7 +53,7 @@ resources:
   bugtracker: https://github.com/shogo82148/Redis-Fast/issues
   homepage: https://github.com/shogo82148/Redis-Fast
   repository: git://github.com/shogo82148/Redis-Fast.git
-version: 0.08
+version: 0.09
 x_contributors:
   - 'sunnavy <sunnavy@bestpractical.com>'
   - 'U-LIFEBOOK\Administrator <Administrator@LIFEBOOK.(none)>'
@@ -72,7 +72,6 @@ x_contributors:
   - 'zhihong zhang <zzh_621@yahoo.com>'
   - 'JoÃ£o Bolila <joao@bolila.com>'
   - 'Syohei YOSHIDA <syohex@gmail.com>'
-  - 'shogo82148 <ichinose-shogo@kayac.com>'
   - 'Damien Krotkine <dkrotkine@weborama.com>'
   - 'hisaichi5518 <hisada.kazuki@gmail.com>'
   - 'Masayuki Matsuki <y.songmu@gmail.com>'
@@ -88,3 +87,4 @@ x_contributors:
   - 'xtab <x0r+github@x0r.fr>'
   - 'Ivan Kruglov <ivan.kruglov@yahoo.com>'
   - 'dams <dams@zarb.org>'
+  - 'shogo82148 <ichinose-shogo@kayac.com>'

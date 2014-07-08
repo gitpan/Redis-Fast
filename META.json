@@ -64,7 +64,7 @@
    "provides" : {
       "Redis::Fast" : {
          "file" : "lib/Redis/Fast.pm",
-         "version" : "0.08"
+         "version" : "0.09"
       },
       "Redis::Fast::Hash" : {
          "file" : "lib/Redis/Fast/Hash.pm"
@@ -87,7 +87,7 @@
          "web" : "https://github.com/shogo82148/Redis-Fast"
       }
    },
-   "version" : "0.08",
+   "version" : "0.09",
    "x_contributors" : [
       "sunnavy <sunnavy@bestpractical.com>",
       "U-LIFEBOOK\\Administrator <Administrator@LIFEBOOK.(none)>",
@@ -106,7 +106,6 @@
       "zhihong zhang <zzh_621@yahoo.com>",
       "JoÃ£o Bolila <joao@bolila.com>",
       "Syohei YOSHIDA <syohex@gmail.com>",
-      "shogo82148 <ichinose-shogo@kayac.com>",
       "Damien Krotkine <dkrotkine@weborama.com>",
       "hisaichi5518 <hisada.kazuki@gmail.com>",
       "Masayuki Matsuki <y.songmu@gmail.com>",
@@ -121,6 +120,7 @@
       "Celogeek <me@celogeek.com>",
       "xtab <x0r+github@x0r.fr>",
       "Ivan Kruglov <ivan.kruglov@yahoo.com>",
-      "dams <dams@zarb.org>"
+      "dams <dams@zarb.org>",
+      "shogo82148 <ichinose-shogo@kayac.com>"
    ]
 }

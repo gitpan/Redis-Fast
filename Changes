@@ -1,5 +1,9 @@
 Revision history for Redis
 
+0.09 2014-07-08T15:46:39Z
+    - fix double free
+    - fix signal handling
+
 0.08 2014-05-31T03:46:58Z
     - remove enconding/decoding feature
     - fix select database bug after reconnect
