@@ -29,6 +29,7 @@ t/30-scripts.t
 t/42-client_cmds.t
 t/50-fork_safe.t
 t/51-leak.t
+t/53-blpop_and_timeout.t
 t/53-signal.t
 t/60-sentinel.t
 t/tlib/Test/SpawnRedisServer.pm
