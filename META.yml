@@ -3,25 +3,25 @@ abstract: 'Perl binding for Redis database'
 author:
   - 'Ichinose Shogo <shogo82148@gmail.com>'
 build_requires:
-  File::Temp: 0
-  Test::Deep: 0
-  Test::Fatal: 0
-  Test::LeakTrace: 0
-  Test::More: 0.98
-  Test::TCP: 0
-  Try::Tiny: 0
+  File::Temp: '0'
+  Test::Deep: '0'
+  Test::Fatal: '0'
+  Test::Kwalitee: '0'
+  Test::Kwalitee::Extra: '0'
+  Test::LeakTrace: '0'
+  Test::More: '0.98'
+  Test::SharedFork: '0'
+  Test::TCP: '0'
 configure_requires:
-  CPAN::Meta: 0
-  CPAN::Meta::Prereqs: 0
-  File::Which: 0
-  Module::Build: 0.38
-  Module::Build::XSUtil: 0.02
+  File::Which: '0'
+  Module::Build: '0.38'
+  Module::Build::XSUtil: '0.02'
 dynamic_config: 0
-generated_by: 'Minilla/v0.11.0, CPAN::Meta::Converter version 2.120921'
-license: unknown
+generated_by: 'Minilla/v2.1.1, CPAN::Meta::Converter version 2.142060'
+license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+  version: '1.4'
 name: Redis-Fast
 no_index:
   directory:
@@ -37,23 +37,21 @@ no_index:
 provides:
   Redis::Fast:
     file: lib/Redis/Fast.pm
-    version: 0.11
+    version: '0.12'
   Redis::Fast::Hash:
     file: lib/Redis/Fast/Hash.pm
-    version: 0
   Redis::Fast::List:
     file: lib/Redis/Fast/List.pm
-    version: 0
   Redis::Fast::Sentinel:
     file: lib/Redis/Fast/Sentinel.pm
-    version: 0
 requires:
-  perl: 5.008001
+  Try::Tiny: '0'
+  perl: '5.008001'
 resources:
   bugtracker: https://github.com/shogo82148/Redis-Fast/issues
   homepage: https://github.com/shogo82148/Redis-Fast
   repository: git://github.com/shogo82148/Redis-Fast.git
-version: 0.11
+version: '0.12'
 x_contributors:
   - 'sunnavy <sunnavy@bestpractical.com>'
   - 'U-LIFEBOOK\Administrator <Administrator@LIFEBOOK.(none)>'
@@ -70,7 +68,7 @@ x_contributors:
   - 'Pedro Melo <melo@simplicidade.org>'
   - 'perlpong <calyx238@gmail.com>'
   - 'zhihong zhang <zzh_621@yahoo.com>'
-  - 'JoÃ£o Bolila <joao@bolila.com>'
+  - 'João Bolila <joao@bolila.com>'
   - 'Syohei YOSHIDA <syohex@gmail.com>'
   - 'Damien Krotkine <dkrotkine@weborama.com>'
   - 'hisaichi5518 <hisada.kazuki@gmail.com>'
@@ -81,10 +79,11 @@ x_contributors:
   - 'Andreas Koenig <andk@cpan.org>'
   - 'Steffen Mueller <smueller@cpan.org>'
   - 'Rafael Garcia-Suarez <rgs@consttype.org>'
-  - 'Ãvar ArnfjÃ¶rÃ° Bjarmason <avarab@gmail.com>'
+  - 'Ævar Arnfjörð Bjarmason <avarab@gmail.com>'
   - 'Celogeek <me@celogeek.com>'
   - 'xtab <x0r+github@x0r.fr>'
   - 'Ivan Kruglov <ivan.kruglov@yahoo.com>'
   - 'dams <dams@zarb.org>'
   - 'Victor <victor@vsespb.ru>'
+  - 'bj5004 <bartosz.jakubski@hurra.com>'
   - 'shogo82148 <ichinose-shogo@kayac.com>'

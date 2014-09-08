@@ -43,6 +43,7 @@ tools/benchmarks/readline_vs_sysread_vs_recv/client-sysread.pl
 tools/benchmarks/readline_vs_sysread_vs_recv/run.pl
 tools/benchmarks/readline_vs_sysread_vs_recv/server-generator.pl
 typemap
+xt/release/kwalitee.t
 deps/hiredis/CHANGELOG.md
 deps/hiredis/COPYING
 deps/hiredis/Makefile

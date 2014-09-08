@@ -286,7 +286,7 @@ static redisAsyncContext* __build_sock(Redis__Fast self)
     redisAsyncSetDisconnectCallback(ac, (redisDisconnectCallback*)Redis__Fast_disconnect_cb);
 
     // wait to connect...
-    timeout = self->every / 1000.0;
+    timeout = self->every / 1000000.0;
     if(self->cnx_timeout > 0 && self->cnx_timeout < timeout) {
         timeout = self->cnx_timeout;
     }
@@ -1071,6 +1071,7 @@ PREINIT:
     redis_fast_sync_cb_t *cbt;
 CODE:
 {
+    DEBUG_MSG("%s", "start");
     if(self->ac) {
         Newx(cbt, sizeof(redis_fast_sync_cb_t), redis_fast_sync_cb_t);
         cbt->ret.result = NULL;
@@ -1081,14 +1082,17 @@ CODE:
             );
         redisAsyncDisconnect(self->ac);
         if(_wait_all_responses(self) == WAIT_FOR_EVENT_OK) {
-            ST(0) = cbt->ret.result;
+            DEBUG_MSG("%s", "wait_all_responses ok");
             if(cbt->ret.result || cbt->ret.error) Safefree(cbt);
-            XSRETURN(1);
         } else {
+            DEBUG_MSG("%s", "wait_all_responses not ok");
             if(cbt->ret.result || cbt->ret.error) Safefree(cbt);
-            XSRETURN(0);
         }
+        DEBUG_MSG("%s", "finish");
+        ST(0) = sv_2mortal(newSViv(1));
+        XSRETURN(1);
     } else {
+        DEBUG_MSG("%s", "finish. there is no connection.");
         XSRETURN(0);
     }
 }
