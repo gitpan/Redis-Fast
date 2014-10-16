@@ -31,6 +31,8 @@ t/50-fork_safe.t
 t/51-leak.t
 t/53-blpop.t
 t/53-blpop_and_timeout.t
+t/53-deep-recursion.t
+t/53-password.t
 t/53-signal.t
 t/53-timeout-length.t
 t/60-sentinel.t

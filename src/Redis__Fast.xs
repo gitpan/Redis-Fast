@@ -47,6 +47,7 @@ typedef struct redis_fast_s {
     double write_timeout;
     int current_database;
     int need_recoonect;
+    int is_connected;
     SV* on_connect;
     SV* on_build_sock;
     SV* data;
@@ -71,12 +72,16 @@ typedef struct redis_fast_sync_cb_s {
     redis_fast_reply_t ret;
     int collect_errors;
     CUSTOM_DECODE custom_decode;
+    int on_flags;
+    int off_flags;
 } redis_fast_sync_cb_t;
 
 typedef struct redis_fast_async_cb_s {
     SV* cb;
     int collect_errors;
     CUSTOM_DECODE custom_decode;
+    int on_flags;
+    int off_flags;
 } redis_fast_async_cb_t;
 
 typedef struct redis_fast_subscribe_cb_s {
@@ -228,22 +233,20 @@ static int wait_for_event(Redis__Fast self, double read_timeout, double write_ti
 
 static void Redis__Fast_connect_cb(redisAsyncContext* c, int status) {
     Redis__Fast self = (Redis__Fast)c->data;
+    DEBUG_MSG("connected status = %d", status);
     if(status != REDIS_OK) {
         // Connection Error!!
         // Redis context will close automatically
         self->ac = NULL;
     } else {
-        if(self->on_connect){
-            dSP;
-            PUSHMARK(SP);
-            call_sv(self->on_connect, G_DISCARD | G_NOARGS);
-        }
+        self->is_connected = 1;
     }
 }
 
 static void Redis__Fast_disconnect_cb(redisAsyncContext* c, int status) {
     Redis__Fast self = (Redis__Fast)c->data;
     PERL_UNUSED_VAR(status);
+    DEBUG_MSG("disconnected status = %d", status);
     self->ac = NULL;
 }
 
@@ -280,6 +283,7 @@ static redisAsyncContext* __build_sock(Redis__Fast self)
     }
     ac->data = (void*)self;
     self->ac = ac;
+    self->is_connected = 0;
 
     Attach(ac);
     redisAsyncSetConnectCallback(ac, (redisConnectCallback*)Redis__Fast_connect_cb);
@@ -290,12 +294,22 @@ static redisAsyncContext* __build_sock(Redis__Fast self)
     if(self->cnx_timeout > 0 && self->cnx_timeout < timeout) {
         timeout = self->cnx_timeout;
     }
-    res = wait_for_event(self, timeout, timeout);
-    if(res != WAIT_FOR_EVENT_OK) {
-        DEBUG_MSG("error: %d", res);
-        redisAsyncFree(self->ac);
-        self->ac = NULL;
-        return NULL;
+    while(!self->is_connected) {
+        res = wait_for_event(self, timeout, timeout);
+        if(self->ac == NULL) {
+            return NULL;
+        }
+        if(res != WAIT_FOR_EVENT_OK) {
+            DEBUG_MSG("error: %d", res);
+            redisAsyncFree(self->ac);
+            self->ac = NULL;
+            return NULL;
+        }
+    }
+    if(self->on_connect){
+        dSP;
+        PUSHMARK(SP);
+        call_sv(self->on_connect, G_DISCARD | G_NOARGS);
     }
 
     DEBUG_MSG("%s", "finsih");
@@ -446,6 +460,7 @@ static void Redis__Fast_sync_reply_cb(redisAsyncContext* c, void* reply, void* p
     redis_fast_sync_cb_t *cbt = (redis_fast_sync_cb_t*)privdata;
     DEBUG_MSG("%p", (void*)privdata);
     if(reply) {
+        self->flags = (self->flags | cbt->on_flags) & cbt->off_flags;
         if(cbt->custom_decode) {
             cbt->ret = (cbt->custom_decode)(self, (redisReply*)reply, cbt->collect_errors);
         } else {
@@ -469,6 +484,8 @@ static void Redis__Fast_async_reply_cb(redisAsyncContext* c, void* reply, void* 
     redis_fast_reply_t result;
     SV* sv_undef;
     if (reply) {
+        self->flags = (self->flags | cbt->on_flags) & cbt->off_flags;
+
         dSP;
 
         ENTER;
@@ -570,6 +587,7 @@ static void Redis__Fast_subscribe_cb(redisAsyncContext* c, void* reply, void* pr
 
 static redis_fast_reply_t  Redis__Fast_run_cmd(Redis__Fast self, int collect_errors, CUSTOM_DECODE custom_decode, SV* cb, int argc, const char** argv, size_t* argvlen) {
     redis_fast_reply_t ret = {NULL, NULL};
+    int on_flags = 0, off_flags = ~0;
 
     DEBUG_MSG("start %s", argv[0]);
 
@@ -579,12 +597,25 @@ static redis_fast_reply_t  Redis__Fast_run_cmd(Redis__Fast self, int collect_err
         Redis__Fast_connect(self);
     }
 
+    if(EQUALS_COMMAND(argvlen[0], argv[0], "MULTI")) {
+        on_flags = FLAG_INSIDE_TRANSACTION;
+    } else if(EQUALS_COMMAND(argvlen[0], argv[0], "EXEC") ||
+              EQUALS_COMMAND(argvlen[0], argv[0], "DISCARD")) {
+        off_flags = ~(FLAG_INSIDE_TRANSACTION | FLAG_INSIDE_WATCH);
+    } else if(EQUALS_COMMAND(argvlen[0], argv[0], "WATCH")) {
+        on_flags = FLAG_INSIDE_WATCH;
+    } else if(EQUALS_COMMAND(argvlen[0], argv[0], "UNWATCH")) {
+        off_flags = ~FLAG_INSIDE_WATCH;
+    }
+
     if(cb) {
         redis_fast_async_cb_t *cbt;
         Newx(cbt, sizeof(redis_fast_async_cb_t), redis_fast_async_cb_t);
         cbt->cb = SvREFCNT_inc(cb);
         cbt->custom_decode = custom_decode;
         cbt->collect_errors = collect_errors;
+        cbt->on_flags = on_flags;
+        cbt->off_flags = off_flags;
         redisAsyncCommandArgv(
             self->ac, Redis__Fast_async_reply_cb, cbt,
             argc, argv, argvlen
@@ -601,6 +632,8 @@ static redis_fast_reply_t  Redis__Fast_run_cmd(Redis__Fast self, int collect_err
             cbt->ret.error = NULL;
             cbt->custom_decode = custom_decode;
             cbt->collect_errors = collect_errors;
+            cbt->on_flags = on_flags;
+            cbt->off_flags = off_flags;
             DEBUG_MSG("%s", "send command in sync mode");
             redisAsyncCommandArgv(
                 self->ac, Redis__Fast_sync_reply_cb, cbt,
@@ -1042,17 +1075,6 @@ CODE:
     collect_errors = 0;
     if(cb && EQUALS_COMMAND(argvlen[0], argv[0], "EXEC"))
         collect_errors = 1;
-
-    if(EQUALS_COMMAND(argvlen[0], argv[0], "MULTI")) {
-        self->flags |= FLAG_INSIDE_TRANSACTION;
-    } else if(EQUALS_COMMAND(argvlen[0], argv[0], "EXEC") ||
-              EQUALS_COMMAND(argvlen[0], argv[0], "DISCARD")) {
-        self->flags &= ~(FLAG_INSIDE_TRANSACTION | FLAG_INSIDE_WATCH);
-    } else if(EQUALS_COMMAND(argvlen[0], argv[0], "WATCH")) {
-        self->flags |= FLAG_INSIDE_WATCH;
-    } else if(EQUALS_COMMAND(argvlen[0], argv[0], "UNWATCH")) {
-        self->flags &= ~FLAG_INSIDE_WATCH;
-    }
 
     ret = Redis__Fast_run_cmd(self, collect_errors, NULL, cb, argc, (const char**)argv, argvlen);
 

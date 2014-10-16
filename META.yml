@@ -3,6 +3,7 @@ abstract: 'Perl binding for Redis database'
 author:
   - 'Ichinose Shogo <shogo82148@gmail.com>'
 build_requires:
+  Digest::SHA: '0'
   File::Temp: '0'
   Test::Deep: '0'
   Test::Fatal: '0'
@@ -37,7 +38,7 @@ no_index:
 provides:
   Redis::Fast:
     file: lib/Redis/Fast.pm
-    version: '0.12'
+    version: '0.13'
   Redis::Fast::Hash:
     file: lib/Redis/Fast/Hash.pm
   Redis::Fast::List:
@@ -45,13 +46,14 @@ provides:
   Redis::Fast::Sentinel:
     file: lib/Redis/Fast/Sentinel.pm
 requires:
+  Time::HiRes: '0'
   Try::Tiny: '0'
   perl: '5.008001'
 resources:
   bugtracker: https://github.com/shogo82148/Redis-Fast/issues
   homepage: https://github.com/shogo82148/Redis-Fast
   repository: git://github.com/shogo82148/Redis-Fast.git
-version: '0.12'
+version: '0.13'
 x_contributors:
   - 'sunnavy <sunnavy@bestpractical.com>'
   - 'U-LIFEBOOK\Administrator <Administrator@LIFEBOOK.(none)>'

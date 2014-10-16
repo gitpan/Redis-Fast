@@ -2,7 +2,7 @@ package Redis::Fast;
 
 BEGIN {
     use XSLoader;
-    our $VERSION = '0.12';
+    our $VERSION = '0.13';
     XSLoader::load __PACKAGE__, $VERSION;
 }
 
@@ -19,7 +19,7 @@ use Redis::Fast::Sentinel;
 sub _new_on_connect_cb {
     my ($self, $on_conn, $password, $name) = @_;
     weaken $self;
-    return sub {
+    my $handler = sub {
         # If we are in PubSub mode we shouldn't perform any command besides
         # (p)(un)subscribe
         if (! $self->is_subscriber) {
@@ -51,6 +51,40 @@ sub _new_on_connect_cb {
 
         defined $on_conn
             and $on_conn->($self);
+    };
+
+    return sub {
+        my $reconnect_stash = $self->__get_reconnect;
+        if(defined $password) {
+            my $err;
+            $self->__set_reconnect(0);
+            try {
+                $self->auth($password);
+            } catch {
+                $err = $_;
+            };
+            if(defined $err) {
+                if($err =~ /ERR invalid password/) {
+                    # password setting is incorrect, no need to reconnect
+                    die("Redis server refused password");
+                } else {
+                    # it might be network error
+                    # invoke reconnect
+                    $self->__set_reconnect($reconnect_stash);
+                    return ;
+                }
+            }
+        }
+
+        try {
+            # disable reconnection while executing on_connect handler
+            $self->__set_reconnect(0);
+            $handler->();
+        } catch {
+            $self->quit();
+        } finally {
+            $self->__set_reconnect($reconnect_stash);
+        };
     };
 }
 
